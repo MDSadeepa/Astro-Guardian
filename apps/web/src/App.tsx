@@ -385,7 +385,7 @@ function App() {
                         <span className="text-xs font-semibold text-green-400 bg-green-400/10 px-2 py-1 rounded">+14%</span>
                     </div>
                     <div className="flex items-end gap-2 h-16 w-full mt-2">
-                        {scanHistory.map((data, i) => (
+                        {scanHistory.map((data: any, i: number) => (
                         <div key={i} className="flex-1 flex flex-col justify-end group">
                             <div 
                                 className="w-full bg-blue-500/80 rounded-t-sm group-hover:bg-blue-400 transition-colors" 
