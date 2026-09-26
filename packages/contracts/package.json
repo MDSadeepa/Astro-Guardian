@@ -1,0 +1,5 @@
+{
+  "name": "@astro-guardian/contracts",
+  "version": "1.0.0",
+  "main": "index.ts"
+}

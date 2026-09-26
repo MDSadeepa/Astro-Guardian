@@ -1,0 +1,7 @@
+{
+  "name": "@astro-guardian/worker",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "npx tsx src/index.ts"
+  }
+}
