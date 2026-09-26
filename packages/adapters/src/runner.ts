@@ -50,30 +50,30 @@ export class RunnerAdapter {
     }
 
     private generateReport(language: string, fixes: {pkg: string; oldVersion?: string; safeVersion: string; def: VulnerabilityDef}[]): string {
-        let report = `## 🛡️ Astro-Guardian Security Audit Report\\n\\n`;
-        report += `**Language Framework:** ${language}\\n`;
-        report += `**Scan Date:** ${new Date().toISOString()}\\n\\n`;
+        let report = `## 🛡️ Astro-Guardian Security Audit Report\n\n`;
+        report += `**Language Framework:** ${language}\n`;
+        report += `**Scan Date:** ${new Date().toISOString()}\n\n`;
         
         if (fixes.length === 0) {
-            report += `✅ **Result:** No known vulnerable dependencies found in the current manifest.\\n\\n`;
+            report += `✅ **Result:** No known vulnerable dependencies found in the current manifest.\n\n`;
             return report;
         }
 
-        report += `🚨 **Vulnerabilities Dynamically Detected & Patched: ${fixes.length}**\\n\\n`;
-        report += `| Package | Severity | CVE | Description | Fix |\\n`;
-        report += `| :--- | :---: | :--- | :--- | :--- |\\n`;
+        report += `🚨 **Vulnerabilities Dynamically Detected & Patched: ${fixes.length}**\n\n`;
+        report += `| Package | Severity | CVE | Description | Fix |\n`;
+        report += `| :--- | :---: | :--- | :--- | :--- |\n`;
 
         fixes.forEach(fix => {
             const sevIcon = fix.def.severity === 'CRITICAL' ? '🔴' : (fix.def.severity === 'HIGH' ? '🟠' : '🟡');
-            report += `| \`${fix.pkg}\` | ${sevIcon} ${fix.def.severity} | **${fix.def.cve}** | ${fix.def.description} | Upgraded to \`${fix.safeVersion}\` |\\n`;
+            report += `| \`${fix.pkg}\` | ${sevIcon} ${fix.def.severity} | **${fix.def.cve}** | ${fix.def.description} | Upgraded to \`${fix.safeVersion}\` |\n`;
         });
 
-        report += `\\n### Actions Taken\\n`;
-        report += `- Live OSV/NVD database querying performed.\\n`;
-        report += `- Analyzed dependency tree for known CVEs.\\n`;
-        report += `- Pinned vulnerable packages to dynamically discovered secure versions.\\n`;
-        report += `- Verified builds in isolated Docker runner.\\n\\n`;
-        report += `*Automated Patch provided by Astro-Guardian AI Engine.*\\n`;
+        report += `\n### Actions Taken\n`;
+        report += `- Live OSV/NVD database querying performed.\n`;
+        report += `- Analyzed dependency tree for known CVEs.\n`;
+        report += `- Pinned vulnerable packages to dynamically discovered secure versions.\n`;
+        report += `- Verified builds in isolated Docker runner.\n\n`;
+        report += `*Automated Patch provided by Astro-Guardian AI Engine.*\n`;
         return report;
     }
 
@@ -217,7 +217,7 @@ export class RunnerAdapter {
                 let pom = fs.readFileSync(pomPath, "utf8");
                 
                 // Extract all dependencies via Regex
-                const depRegex = /<dependency>\\s*<groupId>([^<]+)<\\/groupId>\\s*<artifactId>([^<]+)<\\/artifactId>\\s*<version>([^<]+)<\\/version>[\\s\\S]*?<\\/dependency>/g;
+                const depRegex = /<dependency>\s*<groupId>([^<]+)<\/groupId>\s*<artifactId>([^<]+)<\/artifactId>\s*<version>([^<]+)<\/version>[\s\S]*?<\/dependency>/g;
                 let match;
                 
                 while ((match = depRegex.exec(pom)) !== null) {
@@ -254,7 +254,7 @@ export class RunnerAdapter {
       </executions>
     </plugin>`;
                     if (pom.includes("</plugins>")) {
-                        pom = pom.replace("</plugins>", pluginSection + "\\n  </plugins>");
+                        pom = pom.replace("</plugins>", pluginSection + "\n  </plugins>");
                     }
                 }
                 fs.writeFileSync(pomPath, pom);
@@ -267,7 +267,7 @@ export class RunnerAdapter {
             const reqPath = `${workspace}/requirements.txt`;
             if (fs.existsSync(reqPath)) {
                 let reqFile = fs.readFileSync(reqPath, "utf8");
-                const lines = reqFile.split("\\n");
+                const lines = reqFile.split("\n");
                 const newLines = [];
                 
                 for (const line of lines) {
@@ -298,7 +298,7 @@ export class RunnerAdapter {
                     }
                 }
 
-                fs.writeFileSync(reqPath, newLines.join("\\n"));
+                fs.writeFileSync(reqPath, newLines.join("\n"));
                 fs.writeFileSync(`${workspace}/SECURITY_REPORT.md`, this.generateReport(language, detailedFixes));
             }
         }
@@ -374,10 +374,10 @@ export class RunnerAdapter {
             const proc = spawn("docker", dockerArgs, { stdio: ["ignore", "pipe", "pipe"] });
 
             proc.stdout.on("data", (data: Buffer) => {
-                data.toString().split("\\n").forEach((line: string) => { if (line.trim()) logCallback(line); });
+                data.toString().split("\n").forEach((line: string) => { if (line.trim()) logCallback(line); });
             });
             proc.stderr.on("data", (data: Buffer) => {
-                data.toString().split("\\n").forEach((line: string) => {
+                data.toString().split("\n").forEach((line: string) => {
                     if (line.trim() && !line.includes("WARNING") && !line.includes("notice")) logCallback(`[docker] ${line}`);
                 });
             });
