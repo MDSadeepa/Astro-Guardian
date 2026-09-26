@@ -317,7 +317,7 @@ export class RunnerAdapter {
         return { language, vulnerabilitiesFixed: fixedPackages.length, fixedPackages };
     }
 
-    async runRealDockerTests(workspace: string, language: string, logCallback: (line: string) => void): Promise<{ success: boolean; error?: string }> {
+    async runRealDockerTests(workspace: string, language: string, logCallback?: (line: string) => void): Promise<{ success: boolean; error?: string }> {
         return new Promise((resolve) => {
             let dockerArgs: string[] = [];
 
@@ -386,11 +386,11 @@ export class RunnerAdapter {
             const proc = spawn("docker", dockerArgs, { stdio: ["ignore", "pipe", "pipe"] });
 
             proc.stdout.on("data", (data: Buffer) => {
-                data.toString().split("\n").forEach((line: string) => { if (line.trim()) logCallback(line); });
+                data.toString().split("\n").forEach((line: string) => { if (line.trim()) if (logCallback) logCallback(line); });
             });
             proc.stderr.on("data", (data: Buffer) => {
                 data.toString().split("\n").forEach((line: string) => {
-                    if (line.trim() && !line.includes("WARNING") && !line.includes("notice")) logCallback(`[docker] ${line}`);
+                    if (line.trim() && !line.includes("WARNING") && !line.includes("notice")) if (logCallback) logCallback(`[docker] ${line}`);
                 });
             });
 
