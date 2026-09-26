@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { GitHubAdapter } from "@astro-guardian/adapters";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import prisma from "../db";
 
 dotenv.config();
 
@@ -23,13 +24,23 @@ router.get("/installations", async (req: Request, res: Response) => {
         
         const decoded = jwt.verify(token, JWT_SECRET) as any;
         const username = decoded.username;
+        const dbUserId = decoded.id; // Extracted from our new JWT
 
         if (!APP_ID || !PRIVATE_KEY) throw new Error("GitHub App credentials missing in .env");
         
         const installations = await github.getInstallations();
         
-        // HUGE FIX: Only return the installations that belong to the logged-in user!
+        // Filter installations that belong to the logged-in user
         const myInstallations = installations.filter((inst: any) => inst.account.login === username);
+        
+        // [NEW] Sync installations to Prisma Database
+        for (const inst of myInstallations) {
+            await prisma.installation.upsert({
+                where: { githubId: inst.id.toString() },
+                update: { userId: dbUserId },
+                create: { githubId: inst.id.toString(), userId: dbUserId }
+            });
+        }
         
         res.json(myInstallations);
     } catch (error: any) {
@@ -44,8 +55,43 @@ router.get("/repositories", async (req: Request, res: Response) => {
             res.status(400).json({ error: "Missing installationId query param" });
             return;
         }
+        
+        // Fetch from GitHub App
         const repos = await github.getRepositories(Number(installationId));
-        res.json(repos);
+        
+        // [NEW] Find the synced installation in DB
+        const inst = await prisma.installation.findUnique({
+             where: { githubId: installationId.toString() }
+        });
+        
+        // [NEW] Sync Repositories to Database
+        if (inst) {
+            for (const repo of repos) {
+                await prisma.repository.upsert({
+                    where: { githubId: repo.id.toString() },
+                    update: { name: repo.name, owner: repo.owner.login, defaultBranch: repo.default_branch },
+                    create: { 
+                         githubId: repo.id.toString(), 
+                         name: repo.name, 
+                         owner: repo.owner.login, 
+                         defaultBranch: repo.default_branch,
+                         installationId: inst.id
+                    }
+                });
+            }
+        }
+        
+        // [NEW] Fetch from DB to inject our Custom `healthScore`
+        const dbRepos = await prisma.repository.findMany({
+            where: { installationId: inst?.id }
+        });
+
+        const mappedRepos = repos.map((r: any) => {
+             const dbRepo = dbRepos.find(d => d.githubId === r.id.toString());
+             return { ...r, healthScore: dbRepo?.healthScore ?? 100 };
+        });
+        
+        res.json(mappedRepos);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

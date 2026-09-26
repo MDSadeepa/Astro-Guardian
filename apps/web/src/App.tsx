@@ -11,6 +11,11 @@ function App() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'audit' | 'settings'>('dashboard');
   const [selectedRepo, setSelectedRepo] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'findings' | 'patches' | 'logs'>('findings');
+  const [dashboardStats, setDashboardStats] = useState<any>({
+    totalScans: 0,
+    autoFixes: 0,
+    scanHistory: []
+  });
 
   // Job State
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
@@ -30,6 +35,17 @@ function App() {
       })
       .catch(() => setUser(null));
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetch(`${API_BASE_URL}/api/v1/dashboard/stats`, { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => {
+            if(!data.error) setDashboardStats(data);
+        })
+        .catch(() => {});
+    }
+  }, [user]);
 
   const fetchInstallations = () => {
     fetch(`${API_BASE_URL}/api/v1/github/installations`, { credentials: 'include' })
@@ -142,7 +158,7 @@ function App() {
     );
   }
 
-  const scanHistory = [
+  const scanHistory = dashboardStats.scanHistory.length > 0 ? dashboardStats.scanHistory : [
     { day: 'Mon', scans: 14 },
     { day: 'Tue', scans: 22 },
     { day: 'Wed', scans: 8 },
@@ -151,7 +167,7 @@ function App() {
     { day: 'Sat', scans: 4 },
     { day: 'Sun', scans: 11 },
   ];
-  const maxScans = Math.max(...scanHistory.map(d => d.scans));
+  const maxScans = Math.max(...scanHistory.map((d: any) => d.scans), 1);
 
   const mockAuditLogs = [
     { id: 1, date: 'Today, 14:32', repo: 'backend-api', event: 'IBM Bob Delegated Repair', status: 'Verified in Docker', user: user.username },
@@ -350,7 +366,7 @@ function App() {
                         </div>
                         <h3 className="text-gray-400 font-medium">Total Scans Validated</h3>
                     </div>
-                    <p className="text-3xl font-bold text-white">1,284</p>
+                    <p className="text-3xl font-bold text-white">{dashboardStats.totalScans || 0}</p>
                 </div>
                 
                 <div className="bg-[#16181d] border border-gray-800 rounded-2xl p-6 shadow-sm">
@@ -360,7 +376,7 @@ function App() {
                         </div>
                         <h3 className="text-gray-400 font-medium">Auto-Fixes by IBM Bob</h3>
                     </div>
-                    <p className="text-3xl font-bold text-white">342</p>
+                    <p className="text-3xl font-bold text-white">{dashboardStats.autoFixes || 0}</p>
                 </div>
 
                 <div className="bg-[#16181d] border border-gray-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
@@ -477,10 +493,12 @@ function App() {
                   <div className="mb-6">
                     <div className="flex justify-between items-end mb-2">
                       <span className="text-sm font-medium text-gray-400">Project Health</span>
-                      <span className="text-2xl font-bold text-yellow-400">76</span>
+                      <span className={`text-2xl font-bold ${selectedRepo.healthScore > 80 ? 'text-green-400' : selectedRepo.healthScore > 60 ? 'text-yellow-400' : 'text-red-400'}`}>
+                        {selectedRepo.healthScore}
+                      </span>
                     </div>
                     <div className="w-full bg-gray-800 rounded-full h-2">
-                      <div className="bg-yellow-400 h-2 rounded-full" style={{ width: '76%' }}></div>
+                      <div className={`h-2 rounded-full ${selectedRepo.healthScore > 80 ? 'bg-green-400' : selectedRepo.healthScore > 60 ? 'bg-yellow-400' : 'bg-red-400'}`} style={{ width: `${selectedRepo.healthScore}%` }}></div>
                     </div>
                   </div>
 

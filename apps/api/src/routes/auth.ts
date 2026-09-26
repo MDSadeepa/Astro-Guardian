@@ -1,5 +1,6 @@
 import { Router } from "express";
 import jwt from "jsonwebtoken";
+import prisma from "../db";
 
 const router = Router();
 
@@ -49,14 +50,21 @@ router.get("/github/callback", async (req, res) => {
         });
         const userData = await userResponse.json();
 
-        // Create JWT Session
+        // [NEW] Upsert User to Prisma Database
+        const dbUser = await prisma.user.upsert({
+            where: { githubId: userData.id.toString() },
+            update: { username: userData.login, avatar: userData.avatar_url },
+            create: { githubId: userData.id.toString(), username: userData.login, avatar: userData.avatar_url }
+        });
+
+        // Create JWT Session with our DB User ID
         const token = jwt.sign(
-            { id: userData.id, username: userData.login, avatar: userData.avatar_url, githubToken: accessToken }, 
+            { id: dbUser.id, githubId: userData.id.toString(), username: userData.login, avatar: userData.avatar_url, githubToken: accessToken }, 
             JWT_SECRET, 
             { expiresIn: '24h' }
         );
 
-        // Set HttpOnly Cookie (Page 11 requirement)
+        // Set HttpOnly Cookie
         res.cookie("guardian_session", token, {
             httpOnly: true,
             secure: false, // Set to true in production with HTTPS
