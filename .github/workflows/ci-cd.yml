@@ -25,10 +25,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install dependencies (fresh, resolves platform bindings)
+        run: rm -f package-lock.json && npm install
 
       - name: Build Web (React/Vite)
         run: npm run build -w @astro-guardian/web
@@ -55,10 +54,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
 
       - name: Install dependencies
-        run: npm install
+        run: rm -f package-lock.json && npm install
 
       - name: Run npm audit (non-blocking)
         run: npm audit --audit-level=critical || true
@@ -89,10 +87,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm install
 
       - name: Download web dist
         uses: actions/download-artifact@v4
@@ -127,10 +121,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install dependencies (fresh, resolves platform bindings)
+        run: rm -f package-lock.json && npm install
 
       - name: Build web for production
         run: npm run build -w @astro-guardian/web
