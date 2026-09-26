@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { BobAdapter, GitHubAdapter, RunnerAdapter } from "@astro-guardian/adapters";
+import { GitHubAdapter, RunnerAdapter } from "@guardian/adapters";
 import { EventEmitter } from "events";
 import fs from "fs";
 
@@ -62,12 +62,10 @@ async function runActualJob(jobId: string, installationId: number, owner: string
         
         await runner.cloneRepository(repoUrl, token, workspace);
         emit("log.chunk", { text: `[GIT] Cloned ${repoUrl} securely to execution environment.` });
-        await delay(1000);
         
         emit("stage.started", { stage: "scanning", message: "Running Security Scanners..." });
         const scanRes = await runner.runSecurityScanners(workspace);
         emit("log.chunk", { text: `[OSV] Found ${scanRes.vulnerabilitiesFound} high-severity vulnerabilities in codebase.` });
-        await delay(1000);
         
         emit("stage.started", { stage: "analysing", message: "Summoning IBM Bob..." });
         await runner.createBranch(workspace, patchBranch);
@@ -75,14 +73,18 @@ async function runActualJob(jobId: string, installationId: number, owner: string
         
         emit("log.chunk", { text: "[BOB] Analyzing codebase logic and dependencies..." });
         const language = await runner.applyBobPatch(workspace);
-        await delay(1500);
         emit("log.chunk", { text: `[BOB] Detected ${language}. Applying AI security patch...` });
-        await delay(1000);
         
+        // 🔥 REAL DOCKER TESTING 🔥
         emit("stage.started", { stage: "testing", message: "Verifying patch in Runner..." });
-        emit("log.chunk", { text: "[RUNNER] Spinning up isolated container for validation..." });
-        await delay(2000);
-        emit("log.chunk", { text: "[RUNNER] Tests passed successfully! Build is stable." });
+        emit("log.chunk", { text: "[RUNNER] Spinning up real isolated Docker container for validation..." });
+        
+        const testResult = await runner.runRealDockerTests(workspace, language);
+        if (testResult.success) {
+            emit("log.chunk", { text: `[RUNNER] Docker container exited with code 0. Tests passed successfully! Build is stable.` });
+        } else {
+            emit("log.chunk", { text: `[RUNNER] Docker Warning: Container threw an error (${testResult.error}), but patching will continue for demo.` });
+        }
 
         emit("stage.started", { stage: "packaging", message: "Pushing and creating Pull Request..." });
         await runner.commitAndPush(workspace, patchBranch, `Security Patch by IBM Bob (${jobId})`);
@@ -90,7 +92,7 @@ async function runActualJob(jobId: string, installationId: number, owner: string
 
         const finalBase = baseBranch || "main";
         const pr = await github.createPullRequest(
-            installationId, owner, repoName, "🛡️ Security Patch by Astro-Guardian", `${owner}:${patchBranch}`, finalBase,
+            installationId, owner, repoName, "🛡️ Security Patch by AI Repository Guardian", `${owner}:${patchBranch}`, finalBase,
             "IBM Bob has automatically identified and patched a security vulnerability in this repository."
         );
         emit("log.chunk", { text: `[GITHUB] Created PR: ${pr.html_url}` });
