@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 env:
-  NODE_VERSION: "20"
+  NODE_VERSION: "24"
 
 jobs:
   # ─────────────────────────────────────────────
@@ -34,7 +34,7 @@ jobs:
         run: npx tsc --noEmit -p apps/api/tsconfig.json || true
 
       - name: Build Web (React/Vite)
-        run: npm run build -w @guardian/web
+        run: npm run build -w @astro-guardian/web
 
       - name: Upload web build artifact
         uses: actions/upload-artifact@v4
@@ -133,7 +133,7 @@ jobs:
         run: npm ci
 
       - name: Build web for production
-        run: npm run build -w @guardian/web
+        run: npm run build -w @astro-guardian/web
 
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
