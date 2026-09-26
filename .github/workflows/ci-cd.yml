@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 env:
-  NODE_VERSION: "20"
+  NODE_VERSION: "24"
 
 jobs:
   # ─────────────────────────────────────────────
@@ -28,7 +28,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Type check API
         run: npx tsc --noEmit -p apps/api/tsconfig.json || true
@@ -61,7 +61,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Run npm audit
         run: npm audit --audit-level=high || true
@@ -130,7 +130,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build web for production
         run: npm run build -w @astro-guardian/web
