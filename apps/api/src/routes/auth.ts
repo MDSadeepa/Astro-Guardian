@@ -9,7 +9,7 @@ const JWT_SECRET = process.env.SESSION_SECRET || "default_secret";
 
 // 1. Redirect user to GitHub for login
 router.get("/github", (req, res) => {
-    const redirectUri = "http://51.79.165.228:3001/api/v1/auth/github/callback";
+    const redirectUri = "http://51.79.165.228/api/v1/auth/github/callback";
     const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${redirectUri}`;
     res.redirect(githubAuthUrl);
 });
@@ -65,7 +65,7 @@ router.get("/github/callback", async (req, res) => {
         });
 
         // Redirect back to frontend
-        res.redirect("http://51.79.165.228:5173");
+        res.redirect("http://51.79.165.228");
 
     } catch (error: any) {
         res.status(500).send(`Authentication failed: ${error.message}`);
