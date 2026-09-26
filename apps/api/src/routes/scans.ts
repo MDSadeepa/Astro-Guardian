@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { GitHubAdapter, RunnerAdapter } from "@guardian/adapters";
+import { GitHubAdapter, RunnerAdapter } from "@astro-guardian/adapters";
 import { EventEmitter } from "events";
 import fs from "fs";
 

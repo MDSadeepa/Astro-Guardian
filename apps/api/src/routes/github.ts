@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { GitHubAdapter } from "@guardian/adapters";
+import { GitHubAdapter } from "@astro-guardian/adapters";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 
