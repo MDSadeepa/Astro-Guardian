@@ -11,7 +11,7 @@ env:
 
 jobs:
   # ─────────────────────────────────────────────
-  #  JOB 1: Build & Type Check
+  #  JOB 1: Build & Type Checked
   # ─────────────────────────────────────────────
   build:
     name: 🔨 Build & Type Check
