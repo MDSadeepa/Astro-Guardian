@@ -72,7 +72,7 @@ async function runActualJob(jobId: string, installationId: number, owner: string
         emit("log.chunk", { text: `[GIT] Created candidate branch: ${patchBranch}` });
         
         emit("log.chunk", { text: "[BOB] Analyzing codebase logic and dependencies..." });
-        const language = await runner.applyBobPatch(workspace);
+        const { language } = await runner.applyBobPatch(workspace);
         emit("log.chunk", { text: `[BOB] Detected ${language}. Applying AI security patch...` });
         
         // 🔥 REAL DOCKER TESTING 🔥
