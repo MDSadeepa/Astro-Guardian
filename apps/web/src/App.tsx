@@ -17,6 +17,9 @@ function App() {
     scanHistory: []
   });
 
+  // Analysis result from watsonx.ai Granite (set via analysis.result SSE event)
+  const [analysisResult, setAnalysisResult] = useState<{ findings: any[]; bob_summary: string } | null>(null);
+
   // Job State
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
@@ -97,13 +100,22 @@ function App() {
 
     eventSource.addEventListener("stage.started", (e: any) => {
       const data = JSON.parse(e.data);
-      setCurrentStage(data.message);
+      const stageLabel = data.stage === "analysing"
+        ? "watsonx.ai: Granite reasoning…"
+        : data.message;
+      setCurrentStage(stageLabel);
       setLogs(prev => [...prev, `\n> === STAGE: ${data.stage.toUpperCase()} ===`]);
     });
 
     eventSource.addEventListener("log.chunk", (e: any) => {
       const data = JSON.parse(e.data);
       setLogs(prev => [...prev, data.text]);
+    });
+
+    eventSource.addEventListener("analysis.result", (e: any) => {
+      const data = JSON.parse(e.data);
+      setAnalysisResult({ findings: data.findings, bob_summary: data.bob_summary });
+      setActiveTab('findings');
     });
 
     eventSource.addEventListener("job.finished", (e: any) => {
@@ -169,12 +181,16 @@ function App() {
   ];
   const maxScans = Math.max(...scanHistory.map((d: any) => d.scans), 1);
 
-  const mockAuditLogs = [
-    { id: 1, date: 'Today, 14:32', repo: 'backend-api', event: 'IBM Bob Delegated Repair', status: 'Verified in Docker', user: user.username },
-    { id: 2, date: 'Today, 14:15', repo: 'backend-api', event: 'Verification Container Scan', status: 'Failed (Out of Memory)', user: 'System Worker' },
-    { id: 3, date: 'Yesterday, 09:00', repo: 'frontend-web', event: 'Patch Downloaded', status: 'Success', user: user.username },
-    { id: 4, date: 'Sep 24, 11:20', repo: 'frontend-web', event: 'Security Guardian Scan', status: '3 Findings Detected', user: 'System Worker' },
-  ];
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (currentView === 'audit') {
+      fetch(`${API_BASE_URL}/api/v1/dashboard/audit-log`, { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => { if (Array.isArray(data)) setAuditLogs(data); })
+        .catch(() => {});
+    }
+  }, [currentView]);
 
   return (
     <div className="min-h-screen bg-[#0f1115] text-gray-200 font-sans">
@@ -255,7 +271,13 @@ function App() {
                   </tr>
                 </thead>
                 <tbody className="text-sm divide-y divide-gray-800">
-                  {mockAuditLogs.map(log => (
+                  {auditLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-12 text-center text-gray-600">
+                        No scan history yet. Run your first verification scan to see events here.
+                      </td>
+                    </tr>
+                  ) : auditLogs.map(log => (
                     <tr key={log.id} className="hover:bg-[#1a1c23] transition-colors">
                       <td className="px-6 py-4 text-gray-300">{log.date}</td>
                       <td className="px-6 py-4 text-gray-300 font-mono text-xs">{log.repo}</td>
@@ -567,59 +589,66 @@ function App() {
 
                   {activeTab === 'findings' && (
                     <div className="p-6 space-y-4">
-                      {/* OSV Finding */}
-                      <div className="bg-[#1e2128] border border-gray-700 p-5 rounded-lg">
-                        <div className="flex justify-between items-start mb-3">
-                          <div className="flex items-center gap-3">
-                            <span className="bg-red-500/20 text-red-400 px-2.5 py-1 rounded text-xs font-bold border border-red-500/30">CRITICAL</span>
-                            <h4 className="text-white font-bold">OSV: Axios SSRF Vulnerability (CVE-2023-45827)</h4>
+                      {analysisResult ? (
+                        <>
+                          {/* Granite AI Summary */}
+                          <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4 mb-2">
+                            <div className="flex items-center gap-2 mb-2">
+                              <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                              <span className="text-purple-400 text-xs font-bold uppercase tracking-wider">watsonx.ai Granite Analysis</span>
+                            </div>
+                            <p className="text-gray-300 text-sm leading-relaxed">{analysisResult.bob_summary}</p>
                           </div>
-                          <span className="text-gray-500 text-xs font-mono">Dependency Guardian</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                          <div>
-                            <span className="text-gray-500 block mb-1">Affected File</span>
-                            <span className="text-gray-300 font-mono bg-gray-900 px-2 py-1 rounded border border-gray-700">package.json</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-500 block mb-1">Action Eligibility</span>
-                            <span className="text-purple-400 font-semibold flex items-center gap-1">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                              Auto-fix Supported by Bob
-                            </span>
-                          </div>
-                        </div>
-                        <div className="bg-[#0f1115] p-3 rounded font-mono text-xs text-red-300 border border-gray-800 mb-4">
-                          "axios": "^0.21.1" // Vulnerable to Server-Side Request Forgery
-                        </div>
-                        <button className="text-sm bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded transition-colors flex items-center gap-2">
-                          Delegate Repair to IBM Bob &rarr;
-                        </button>
-                      </div>
 
-                      {/* Gitleaks Finding */}
-                      <div className="bg-[#1e2128] border border-gray-700 p-5 rounded-lg">
-                        <div className="flex justify-between items-start mb-3">
-                          <div className="flex items-center gap-3">
-                            <span className="bg-orange-500/20 text-orange-400 px-2.5 py-1 rounded text-xs font-bold border border-orange-500/30">HIGH</span>
-                            <h4 className="text-white font-bold">Gitleaks: Hardcoded AWS Access Key</h4>
-                          </div>
-                          <span className="text-gray-500 text-xs font-mono">Security Guardian</span>
+                          {analysisResult.findings.length === 0 ? (
+                            <div className="text-center py-12 text-gray-500">
+                              <svg className="w-12 h-12 mx-auto mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                              <p>No vulnerable dependencies found — project is clean.</p>
+                            </div>
+                          ) : (
+                            analysisResult.findings.map((finding: any, i: number) => {
+                              const sev = (finding.severity || "HIGH").toUpperCase();
+                              const sevStyle = sev === "CRITICAL"
+                                ? "bg-red-500/20 text-red-400 border-red-500/30"
+                                : sev === "HIGH"
+                                  ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
+                                  : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+                              return (
+                                <div key={i} className="bg-[#1e2128] border border-gray-700 p-5 rounded-lg">
+                                  <div className="flex justify-between items-start mb-3">
+                                    <div className="flex items-center gap-3">
+                                      <span className={`px-2.5 py-1 rounded text-xs font-bold border ${sevStyle}`}>{sev}</span>
+                                      <h4 className="text-white font-bold">OSV: {finding.issue} ({finding.cve})</h4>
+                                    </div>
+                                    <span className="text-gray-500 text-xs font-mono">Dependency Guardian</span>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                                    <div>
+                                      <span className="text-gray-500 block mb-1">Affected File</span>
+                                      <span className="text-gray-300 font-mono bg-gray-900 px-2 py-1 rounded border border-gray-700">{finding.affectedFile}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500 block mb-1">Action Eligibility</span>
+                                      <span className="text-purple-400 font-semibold flex items-center gap-1">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                                        Auto-fix Applied by Bob
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="bg-[#0f1115] p-3 rounded font-mono text-xs text-gray-400 border border-gray-800">
+                                    {finding.action}
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </>
+                      ) : (
+                        <div className="h-full flex flex-col items-center justify-center text-gray-600 opacity-50 py-20">
+                          <svg className="w-14 h-14 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                          <p>Run a scan to see findings powered by watsonx.ai Granite.</p>
                         </div>
-                        <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                          <div>
-                            <span className="text-gray-500 block mb-1">Affected File</span>
-                            <span className="text-gray-300 font-mono bg-gray-900 px-2 py-1 rounded border border-gray-700">src/config/aws.ts</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-500 block mb-1">Action Eligibility</span>
-                            <span className="text-yellow-400 font-semibold">Manual Review Required</span>
-                          </div>
-                        </div>
-                        <div className="bg-[#0f1115] p-3 rounded font-mono text-xs text-orange-300 border border-gray-800">
-                          const AWS_SECRET = "AKIAIOSFODNN7EXAMPLE"; // Detected by Gitleaks pattern
-                        </div>
-                      </div>
+                      )}
                     </div>
                   )}
 
@@ -634,18 +663,11 @@ function App() {
                               <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
                               <h4 className="text-white font-bold text-lg">IBM Bob Generated Patch</h4>
                             </div>
-                            <p className="text-gray-400 text-sm">Resolves CVE-2023-45827 (Axios SSRF)</p>
-                          </div>
-                          <span className="bg-green-500/20 text-green-400 px-3 py-1.5 rounded-full text-xs font-bold border border-green-500/30 flex items-center gap-1.5">
-                            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                            Verified in Temp Container
-                          </span>
-                        </div>
 
-                        <div className="bg-[#0f1115] p-4 rounded-lg font-mono text-sm border border-gray-800 mb-6">
-                          <div className="text-red-400 line-through">- "axios": "^0.21.1"</div>
-                          <div className="text-green-400">+ "axios": "^1.6.0"</div>
-                        </div>
+                            <div className="bg-[#0f1115] p-4 rounded-lg font-mono text-sm border border-gray-800 mb-6">
+                              <div className="text-gray-500 text-xs mb-2">{finding.affectedFile}</div>
+                              <div className="text-green-400">+ {finding.action}</div>
+                            </div>
 
                         <div className="flex gap-3 relative z-10">
                           <button className="bg-gray-800 hover:bg-gray-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors border border-gray-600 flex items-center gap-2">
@@ -657,7 +679,7 @@ function App() {
                             Create Draft PR
                           </button>
                         </div>
-                      </div>
+                      )}
                     </div>
                   )}
 

@@ -138,8 +138,24 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          envs: WATSONX_API_KEY,WATSONX_PROJECT_ID,WATSONX_URL
           script: |
             cd /home/ubuntu/guardian
+
+            # Write / overwrite the .env file with all runtime secrets
+            cat > apps/api/.env <<'ENVEOF'
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+            GITHUB_APP_ID=${{ secrets.GITHUB_APP_ID }}
+            GITHUB_PRIVATE_KEY=${{ secrets.GITHUB_PRIVATE_KEY }}
+            GITHUB_CLIENT_ID=${{ secrets.GITHUB_CLIENT_ID }}
+            GITHUB_CLIENT_SECRET=${{ secrets.GITHUB_CLIENT_SECRET }}
+            GITHUB_CALLBACK_URL=${{ secrets.GITHUB_CALLBACK_URL }}
+            WATSONX_API_KEY=${{ secrets.WATSONX_API_KEY }}
+            WATSONX_PROJECT_ID=${{ secrets.WATSONX_PROJECT_ID }}
+            WATSONX_URL=${{ secrets.WATSONX_URL }}
+            ENVEOF
+
             git pull origin main
             npm install
             pm2 restart guardian-api
