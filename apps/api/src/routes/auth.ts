@@ -18,10 +18,10 @@ router.get("/github", (req, res) => {
 // 2. GitHub redirects back here with a "code"
 router.get("/github/callback", async (req, res) => {
     const code = req.query.code;
-    
+
     if (!code) {
-         res.status(400).send("No code provided");
-         return;
+        res.status(400).send("No code provided");
+        return;
     }
 
     try {
@@ -38,7 +38,7 @@ router.get("/github/callback", async (req, res) => {
                 code
             })
         });
-        
+
         const tokenData = await tokenResponse.json();
         const accessToken = tokenData.access_token;
 
@@ -59,8 +59,8 @@ router.get("/github/callback", async (req, res) => {
 
         // Create JWT Session with our DB User ID
         const token = jwt.sign(
-            { id: dbUser.id, githubId: userData.id.toString(), username: userData.login, avatar: userData.avatar_url, githubToken: accessToken }, 
-            JWT_SECRET, 
+            { id: dbUser.id, githubId: userData.id.toString(), username: userData.login, avatar: userData.avatar_url, githubToken: accessToken },
+            JWT_SECRET,
             { expiresIn: '24h' }
         );
 

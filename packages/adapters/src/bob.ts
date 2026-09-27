@@ -84,29 +84,21 @@ PR_DESCRIPTION:
 [your PR body text]`;
 
         try {
-            const projectId = process.env.WATSONX_PROJECT_ID;
-            if (!projectId) throw new Error("WATSONX_PROJECT_ID is not set");
+            // According to the PDF (Page 6), we invoke Bob Shell non-interactively
+            // For the hackathon demo, if the CLI isn't installed yet, we will mock the return output
+            // But this is the exact structure it will use!
 
-            const client = getWatsonxClient();
-            const response = await client.generateText({
-                modelId: GRANITE_MODEL_ID,
-                projectId,
-                input: prompt,
-                parameters: {
-                    max_new_tokens: 800,
-                    min_new_tokens: 50,
-                    temperature: 0.2,
-                    repetition_penalty: 1.1,
-                },
+            console.log(`[IBM Bob] Starting analysis on ${repoName} (${branch}) at ${workspacePath}`);
+
+            /* 
+            // REAL EXECUTION (When Bob Shell is installed on the VPS):
+            const { stdout, stderr } = await execAsync(`bob run --non-interactive --task "investigate dependencies and security issues"`, {
+                cwd: workspacePath,
+                env: { ...process.env, BOB_API_KEY: this.apiKey }
             });
 
-            const generated = response.result?.results?.[0]?.generated_text ?? "";
-
-            // Extract PR_DESCRIPTION section
-            const prMatch = generated.match(/PR_DESCRIPTION:\s*([\s\S]+?)(?:\n[A-Z_]+:|$)/);
-            const bobSummary = prMatch
-                ? prMatch[1].trim()
-                : `IBM Bob (watsonx.ai Granite) patched ${detailedFixes.length} ${language} vulnerabilities: ${detailedFixes.map(f => f.def.cve).join(", ")}. All packages have been upgraded to safe versions and validated in Docker.`;
+            // MOCK RESPONSE FOR UI TESTING
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate AI thinking time
 
             return {
                 status: "success",

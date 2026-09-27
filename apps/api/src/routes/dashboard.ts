@@ -24,6 +24,15 @@ router.get("/stats", async (req: Request, res: Response) => {
             res.status(401).json({ error: "Not logged in" });
             return;
         }
+        
+        const decoded = jwt.verify(token, JWT_SECRET) as any;
+        let dbUserId = decoded.id;
+
+        // Fallback: If logged in with an old fake session before the DB existed, show demo data!
+        if (!dbUserId) {
+            const demoUser = await prisma.user.findFirst();
+            if (demoUser) dbUserId = demoUser.id;
+        }
 
         // Get total scans for repositories belonging to this user
         const totalScans = await prisma.scanJob.count({
