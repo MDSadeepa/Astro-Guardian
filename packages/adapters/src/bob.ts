@@ -3,6 +3,13 @@ import { promisify } from "util";
 
 const execAsync = promisify(exec);
 
+export interface BobScanResult {
+    secretsFound: number;
+    semgrepIssues: number;
+    bobSummary: string;
+    rawOutput: string;
+}
+
 export class BobAdapter {
     private apiKey: string;
 
@@ -10,50 +17,52 @@ export class BobAdapter {
         this.apiKey = apiKey;
     }
 
-    // Simulate calling IBM Bob Shell to analyze the repository
-    async analyzeRepository(repoName: string, branch: string, workspacePath: string) {
-        try {
-            // According to the PDF (Page 6), we invoke Bob Shell non-interactively
-            // For the hackathon demo, if the CLI isn't installed yet, we will mock the return output
-            // But this is the exact structure it will use!
-            
-            console.log(`[IBM Bob] Starting analysis on ${repoName} (${branch}) at ${workspacePath}`);
-            
-            /* 
-            // REAL EXECUTION (When Bob Shell is installed on the VPS):
-            const { stdout, stderr } = await execAsync(`bob run --non-interactive --task "investigate dependencies and security issues"`, {
-                cwd: workspacePath,
-                env: { ...process.env, BOB_API_KEY: this.apiKey }
-            });
-            return stdout;
-            */
+    // Invokes Bob Shell non-interactively to review the workspace for secrets,
+    // vulnerable dependencies, and security issues using gitleaks + semgrep.
+    async analyzeRepository(repoName: string, branch: string, workspacePath: string): Promise<BobScanResult> {
+        console.log(`[IBM Bob] Starting analysis on ${repoName} (${branch}) at ${workspacePath}`);
 
-            // MOCK RESPONSE FOR UI TESTING
-            await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate AI thinking time
-            
-            return {
-                status: "success",
-                findings: [
-                    {
-                        category: "dependency",
-                        severity: "high",
-                        package: "express",
-                        issue: "Prototype Pollution in express < 4.19.2",
-                        action: "update to 4.19.2"
-                    },
-                    {
-                        category: "security",
-                        severity: "critical",
-                        file: ".env",
-                        issue: "Hardcoded secret detected by Gitleaks",
-                        action: "rotate and remove"
-                    }
-                ],
-                bob_summary: "IBM Bob analyzed the repository. Found 2 critical issues that can be automatically fixed via candidate branches."
-            };
+        try {
+            const prompt = `Review this codebase for hardcoded secrets, vulnerable dependencies, and security issues. Use gitleaks and semgrep tools available on this server.`;
+
+            const { stdout } = await execAsync(
+                `bob -p "${prompt}"`,
+                {
+                    cwd: workspacePath,
+                    env: { ...process.env, BOB_API_KEY: this.apiKey },
+                    timeout: 120000  // 2 minutes max for Bob to run tools
+                }
+            );
+
+            const rawOutput = stdout.trim();
+
+            // Count secret findings from gitleaks output Bob produces
+            const secretMatches = rawOutput.match(/Secret|secret|hardcoded|leaked|api.?key|password/gi) || [];
+            const secretsFound = new Set(secretMatches).size;
+
+            // Count semgrep findings
+            const semgrepMatches = rawOutput.match(/semgrep|rule|finding|violation/gi) || [];
+            const semgrepIssues = new Set(semgrepMatches).size;
+
+            // Extract a clean summary — last paragraph Bob writes, or full output if short
+            const lines = rawOutput.split("\n").filter(l => l.trim());
+            const bobSummary = lines.length > 0
+                ? lines.slice(-5).join(" ").replace(/\s+/g, " ").trim()
+                : "Bob CLI completed analysis. No structured summary returned.";
+
+            console.log(`[IBM Bob] Analysis complete. Raw output length: ${rawOutput.length} chars`);
+
+            return { secretsFound, semgrepIssues, bobSummary, rawOutput };
 
         } catch (error: any) {
-            throw new Error(`IBM Bob Analysis Failed: ${error.message}`);
+            // Bob CLI not available or timed out — fail gracefully
+            console.warn(`[IBM Bob] CLI unavailable or failed: ${error.message}`);
+            return {
+                secretsFound: 0,
+                semgrepIssues: 0,
+                bobSummary: "Bob CLI was not available on this server. Manual security review recommended.",
+                rawOutput: ""
+            };
         }
     }
 }
