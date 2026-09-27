@@ -7,10 +7,12 @@ import authRoutes from './routes/auth';
 import dashboardRoutes from './routes/dashboard';
 const app = express();
 
-app.use(cors({
-    origin: 'http://51.79.165.228:5173',
-    credentials: true // Important for cookies to be sent back and forth
-}));
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true, // Important for cookies to be sent back and forth
+  }),
+);
 app.use(express.json());
 app.use(cookieParser()); // Enable reading HttpOnly cookies
 

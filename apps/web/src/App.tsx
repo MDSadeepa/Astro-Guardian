@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 
-const API_BASE_URL = 'http://51.79.165.228';
+const API_BASE_URL = "http://localhost:3001";
 
 function App() {
   const [user, setUser] = useState<any>(null);
