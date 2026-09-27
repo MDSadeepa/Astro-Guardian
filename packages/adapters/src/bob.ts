@@ -16,9 +16,9 @@ export class BobAdapter {
             // According to the PDF (Page 6), we invoke Bob Shell non-interactively
             // For the hackathon demo, if the CLI isn't installed yet, we will mock the return output
             // But this is the exact structure it will use!
-            
+
             console.log(`[IBM Bob] Starting analysis on ${repoName} (${branch}) at ${workspacePath}`);
-            
+
             /* 
             // REAL EXECUTION (When Bob Shell is installed on the VPS):
             const { stdout, stderr } = await execAsync(`bob run --non-interactive --task "investigate dependencies and security issues"`, {
@@ -30,7 +30,7 @@ export class BobAdapter {
 
             // MOCK RESPONSE FOR UI TESTING
             await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate AI thinking time
-            
+
             return {
                 status: "success",
                 findings: [
