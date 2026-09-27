@@ -140,30 +140,28 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: WATSONX_API_KEY,WATSONX_PROJECT_ID,WATSONX_URL
           script: |
             cd /home/ubuntu/guardian
 
             git pull origin main
             npm install
 
-            # Write / overwrite the .env file with all runtime secrets
-            # NOTE: heredoc must be at column 0 — no leading spaces on any line
-            cat > apps/api/.env <<ENVEOF
-DATABASE_URL=${{ secrets.DATABASE_URL }}
-SESSION_SECRET=${{ secrets.SESSION_SECRET }}
-GITHUB_APP_ID=${{ secrets.GITHUB_APP_ID }}
-GITHUB_PRIVATE_KEY=${{ secrets.GITHUB_PRIVATE_KEY }}
-GITHUB_CLIENT_ID=${{ secrets.GITHUB_CLIENT_ID }}
-GITHUB_CLIENT_SECRET=${{ secrets.GITHUB_CLIENT_SECRET }}
-GITHUB_CALLBACK_URL=${{ secrets.GITHUB_CALLBACK_URL }}
-WATSONX_API_KEY=${{ secrets.WATSONX_API_KEY }}
-WATSONX_PROJECT_ID=${{ secrets.WATSONX_PROJECT_ID }}
-WATSONX_URL=${{ secrets.WATSONX_URL }}
-API_URL=${{ secrets.API_URL }}
-FRONTEND_URL=${{ secrets.FRONTEND_URL }}
-NODE_ENV=production
-ENVEOF
+            # Write .env with secrets injected by GitHub Actions at workflow parse time
+            {
+              echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
+              echo "SESSION_SECRET=${{ secrets.SESSION_SECRET }}"
+              echo "GITHUB_APP_ID=${{ secrets.GITHUB_APP_ID }}"
+              echo "GITHUB_PRIVATE_KEY=${{ secrets.GITHUB_PRIVATE_KEY }}"
+              echo "GITHUB_CLIENT_ID=${{ secrets.GITHUB_CLIENT_ID }}"
+              echo "GITHUB_CLIENT_SECRET=${{ secrets.GITHUB_CLIENT_SECRET }}"
+              echo "GITHUB_CALLBACK_URL=${{ secrets.GITHUB_CALLBACK_URL }}"
+              echo "WATSONX_API_KEY=${{ secrets.WATSONX_API_KEY }}"
+              echo "WATSONX_PROJECT_ID=${{ secrets.WATSONX_PROJECT_ID }}"
+              echo "WATSONX_URL=${{ secrets.WATSONX_URL }}"
+              echo "API_URL=${{ secrets.API_URL }}"
+              echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}"
+              echo "NODE_ENV=production"
+            } > apps/api/.env
 
             pm2 restart guardian-api
             echo "✅ Backend deployment complete!"
