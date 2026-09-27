@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { GitHubAdapter, RunnerAdapter } from "@guardian/adapters";
+import { GitHubAdapter, RunnerAdapter } from "@astro-guardian/adapters";
 import { EventEmitter } from "events";
 import fs from "fs";
 
@@ -15,7 +15,7 @@ router.post("/projects/:id/scans", async (req, res) => {
     try {
         const { branch, repoName, installationId, owner } = req.body;
         const jobId = "job_" + Math.random().toString(36).substring(2, 9);
-        
+
         res.status(202).json({ jobId, status: "queued", message: `Scan queued for ${repoName}` });
         runActualJob(jobId, installationId, owner, repoName, branch);
     } catch (error: any) {
@@ -57,28 +57,28 @@ async function runActualJob(jobId: string, installationId: number, owner: string
         emit("stage.started", { stage: "checkout", message: `Cloning ${owner}/${repoName}...` });
         const token = await github.getInstallationToken(installationId);
         const repoUrl = `https://github.com/${owner}/${repoName}.git`;
-        
+
         if (!fs.existsSync("C:/tmp/guardian")) fs.mkdirSync("C:/tmp/guardian", { recursive: true });
-        
+
         await runner.cloneRepository(repoUrl, token, workspace);
         emit("log.chunk", { text: `[GIT] Cloned ${repoUrl} securely to execution environment.` });
-        
+
         emit("stage.started", { stage: "scanning", message: "Running Security Scanners..." });
         const scanRes = await runner.runSecurityScanners(workspace);
         emit("log.chunk", { text: `[OSV] Found ${scanRes.vulnerabilitiesFound} high-severity vulnerabilities in codebase.` });
-        
+
         emit("stage.started", { stage: "analysing", message: "Summoning IBM Bob..." });
         await runner.createBranch(workspace, patchBranch);
         emit("log.chunk", { text: `[GIT] Created candidate branch: ${patchBranch}` });
-        
+
         emit("log.chunk", { text: "[BOB] Analyzing codebase logic and dependencies..." });
-        const language = await runner.applyBobPatch(workspace);
+        const { language } = await runner.applyBobPatch(workspace);
         emit("log.chunk", { text: `[BOB] Detected ${language}. Applying AI security patch...` });
-        
+
         // 🔥 REAL DOCKER TESTING 🔥
         emit("stage.started", { stage: "testing", message: "Verifying patch in Runner..." });
         emit("log.chunk", { text: "[RUNNER] Spinning up real isolated Docker container for validation..." });
-        
+
         const testResult = await runner.runRealDockerTests(workspace, language);
         if (testResult.success) {
             emit("log.chunk", { text: `[RUNNER] Docker container exited with code 0. Tests passed successfully! Build is stable.` });

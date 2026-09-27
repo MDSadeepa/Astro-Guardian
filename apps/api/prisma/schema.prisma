@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Below is an initial mock schema for Astro-Guardian based on our UI phases.
+
+model User {
+  id            Int      @id @default(autoincrement())
+  githubId      String   @unique
+  username      String
+  avatar        String?
+  createdAt     DateTime @default(now())
+  
+  installations Installation[]
+}
+
+model Installation {
+  id        Int      @id @default(autoincrement())
+  githubId  String   @unique // App Installation ID
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  
+  repositories Repository[]
+}
+
+model Repository {
+  id              Int      @id @default(autoincrement())
+  githubId        String   @unique
+  name            String
+  owner           String
+  defaultBranch   String
+  installationId  Int
+  installation    Installation @relation(fields: [installationId], references: [id])
+  
+  healthScore     Int      @default(100)
+  scans           ScanJob[]
+}
+
+model ScanJob {
+  id            Int      @id @default(autoincrement())
+  repositoryId  Int
+  repository    Repository @relation(fields: [repositoryId], references: [id])
+  
+  status        String   // PENDING, RUNNING, COMPLETED, FAILED
+  stage         String   // E.g. "Cloning", "Scanning", "Finished"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  findings      Finding[]
+}
+
+model Finding {
+  id            Int      @id @default(autoincrement())
+  scanJobId     Int
+  scanJob       ScanJob  @relation(fields: [scanJobId], references: [id])
+  
+  type          String   // DEPENDENCY (OSV), SECURITY (Gitleaks/Semgrep)
+  severity      String   // CRITICAL, HIGH, MEDIUM, LOW
+  title         String
+  affectedFile  String
+  
+  canAutoFix    Boolean  @default(false)
+  isFixed       Boolean  @default(false)
+}

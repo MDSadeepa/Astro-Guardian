@@ -4,7 +4,7 @@ import cookieParser from 'cookie-parser';
 import githubRoutes from './routes/github';
 import scanRoutes from './routes/scans';
 import authRoutes from './routes/auth';
-
+import dashboardRoutes from './routes/dashboard';
 const app = express();
 
 app.use(cors({
@@ -17,7 +17,7 @@ app.use(cookieParser()); // Enable reading HttpOnly cookies
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/github', githubRoutes);
 app.use('/api/v1', scanRoutes);
-
+app.use('/api/v1/dashboard', dashboardRoutes);
 app.get('/api/v1/health', (req: Request, res: Response) => {
     res.json({status: 'ok'});
 });
