@@ -7,10 +7,12 @@ const router = Router();
 const CLIENT_ID = process.env.GITHUB_CLIENT_ID || "";
 const CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET || "";
 const JWT_SECRET = process.env.SESSION_SECRET || "default_secret";
+const API_URL = process.env.API_URL || "http://localhost:3001";
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
 // 1. Redirect user to GitHub for login
 router.get("/github", (req, res) => {
-    const redirectUri = "http://51.79.165.228/api/v1/auth/github/callback";
+    const redirectUri = `${API_URL}/api/v1/auth/github/callback`;
     const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${redirectUri}`;
     res.redirect(githubAuthUrl);
 });
@@ -67,13 +69,13 @@ router.get("/github/callback", async (req, res) => {
         // Set HttpOnly Cookie
         res.cookie("guardian_session", token, {
             httpOnly: true,
-            secure: false, // Set to true in production with HTTPS
+            secure: process.env.NODE_ENV === "production",
             sameSite: "lax",
             maxAge: 24 * 60 * 60 * 1000
         });
 
         // Redirect back to frontend
-        res.redirect("http://51.79.165.228");
+        res.redirect(FRONTEND_URL);
 
     } catch (error: any) {
         res.status(500).send(`Authentication failed: ${error.message}`);

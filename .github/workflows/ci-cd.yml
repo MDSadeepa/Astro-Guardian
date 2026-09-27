@@ -131,6 +131,8 @@ jobs:
 
       - name: Build web for production
         run: npm run build -w @astro-guardian/web
+        env:
+          VITE_API_URL: ${{ secrets.API_URL }}
 
       - name: Deploy backend to VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -154,6 +156,9 @@ jobs:
             WATSONX_API_KEY=${{ secrets.WATSONX_API_KEY }}
             WATSONX_PROJECT_ID=${{ secrets.WATSONX_PROJECT_ID }}
             WATSONX_URL=${{ secrets.WATSONX_URL }}
+            API_URL=${{ secrets.API_URL }}
+            FRONTEND_URL=${{ secrets.FRONTEND_URL }}
+            NODE_ENV=production
             ENVEOF
 
             git pull origin main

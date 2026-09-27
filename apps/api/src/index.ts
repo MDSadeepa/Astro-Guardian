@@ -8,7 +8,7 @@ import dashboardRoutes from './routes/dashboard';
 const app = express();
 
 app.use(cors({
-    origin: 'http://51.79.165.228:5173',
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
     credentials: true // Important for cookies to be sent back and forth
 }));
 app.use(express.json());
