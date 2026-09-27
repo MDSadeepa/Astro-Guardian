@@ -22,14 +22,24 @@ export class BobAdapter {
     async analyzeRepository(repoName: string, branch: string, workspacePath: string): Promise<BobScanResult> {
         console.log(`[IBM Bob] Starting analysis on ${repoName} (${branch}) at ${workspacePath}`);
 
+        // Ensure license is accepted before the real scan call — required for
+        // non-interactive mode on first run. This is a no-op if already accepted.
+        try {
+            await execAsync(`bob --auth-method api-key --accept-license -p "ping"`, {
+                cwd: workspacePath,
+                env: { ...process.env, BOBSHELL_API_KEY: this.apiKey },
+                timeout: 15000
+            });
+        } catch (_) { /* ignore — proceeds even if ping fails */ }
+
         try {
             const prompt = `Review this codebase for hardcoded secrets, vulnerable dependencies, and security issues. Use gitleaks and semgrep tools available on this server.`;
 
             const { stdout } = await execAsync(
-                `bob -p "${prompt}"`,
+                `bob --auth-method api-key --accept-license -p "${prompt}"`,
                 {
                     cwd: workspacePath,
-                    env: { ...process.env, BOB_API_KEY: this.apiKey },
+                    env: { ...process.env, BOBSHELL_API_KEY: this.apiKey },
                     timeout: 120000  // 2 minutes max for Bob to run tools
                 }
             );
