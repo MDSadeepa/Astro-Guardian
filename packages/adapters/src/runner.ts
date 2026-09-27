@@ -51,7 +51,7 @@ export class RunnerAdapter {
         }
 
         // Invoke Bob CLI for real secrets + semgrep scan
-        const bob = new BobAdapter(process.env.BOBSHELL_API_KEY || "");
+        const bob = new BobAdapter(process.env.BOBSHELL_API_KEY || process.env.BOB_API_KEY || "");
         const bobResult: BobScanResult = await bob.analyzeRepository(repoName, branch, workspace);
 
         return {
@@ -196,8 +196,7 @@ export class RunnerAdapter {
         return null;
     }
 
-    async applyBobPatch(workspace: string, bobResult?: { secretsFound: number; semgrepIssues: number; bobSummary: string; rawBobOutput: string }, logCallback?: (line: string) => void): Promise<{ language: string; vulnerabilitiesFixed: number; fixedPackages: string[] }> {
-        const log = (text: string) => { if (logCallback) logCallback(text); };
+    async applyBobPatch(workspace: string, bobResult?: { secretsFound: number; semgrepIssues: number; bobSummary: string; rawBobOutput: string }): Promise<{ language: string; vulnerabilitiesFixed: number; fixedPackages: string[] }> {
         const language = this.detectLanguage(workspace);
         const fixedPackages: string[] = [];
         const detailedFixes: {pkg: string; oldVersion?: string; safeVersion: string; def: VulnerabilityDef}[] = [];
@@ -297,12 +296,10 @@ export class RunnerAdapter {
                     const version = match[3];
                     const fullName = `${groupId}:${artifactId}`;
 
-                    log(`[OSV] Checking ${fullName}@${version} against Google OSV database...`);
                     // Dynamically ask Google OSV API if this specific version is vulnerable
                     const vulnDef = await this.checkOsvDatabase("Maven", fullName, version);
 
                     if (vulnDef && vulnDef.safeVersion && vulnDef.safeVersion !== "latest") {
-                        log(`[OSV] 🔴 VULNERABLE: ${artifactId}@${version} → safe version: ${vulnDef.safeVersion} (${vulnDef.cve})`);
                         // Dynamically replace the vulnerable version in POM
                         const oldDepBlock = match[0];
                         const newDepBlock = oldDepBlock.replace(`<version>${version}</version>`, `<version>${vulnDef.safeVersion}</version>`);
@@ -310,8 +307,6 @@ export class RunnerAdapter {
 
                         fixedPackages.push(`${artifactId}: upgraded to ${vulnDef.safeVersion} [${vulnDef.severity}]`);
                         detailedFixes.push({pkg: artifactId, oldVersion: version, safeVersion: vulnDef.safeVersion, def: vulnDef});
-                    } else {
-                        log(`[OSV] ✅ Clean: ${artifactId}@${version}`);
                     }
                 }
 
@@ -463,14 +458,7 @@ export class RunnerAdapter {
             });
 
             const timeout = setTimeout(() => { proc.kill(); resolve({ success: true }); }, 300000);
-            proc.on("close", (code: number) => {
-                clearTimeout(timeout);
-                if (code === 0 || code === null) {
-                    resolve({ success: true });
-                } else {
-                    resolve({ success: false, error: `Docker container exited with code ${code}` });
-                }
-            });
+            proc.on("close", (code: number) => { clearTimeout(timeout); resolve({ success: code === 0 || code === null }); });
             proc.on("error", (err: Error) => { clearTimeout(timeout); resolve({ success: false, error: err.message }); });
         });
     }
