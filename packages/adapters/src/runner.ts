@@ -66,7 +66,7 @@ export class RunnerAdapter {
     detectLanguage(workspace: string): string {
         if (fs.existsSync(`${workspace}/package.json`)) return "Node.js";
         if (fs.existsSync(`${workspace}/requirements.txt`) || fs.existsSync(`${workspace}/setup.py`) || fs.existsSync(`${workspace}/pyproject.toml`)) return "Python";
-        if (fs.existsSync(`${workspace}/pom.xml`)) return "Java (Maven)";
+        if (fs.existsSync(`${workspace}/pom.xml`) || fs.existsSync(`${workspace}/backend/pom.xml`) || fs.existsSync(`${workspace}/api/pom.xml`)) return "Java (Maven)";
         if (fs.existsSync(`${workspace}/build.gradle`) || fs.existsSync(`${workspace}/build.gradle.kts`)) return "Java (Gradle)";
         if (fs.existsSync(`${workspace}/composer.json`)) return "PHP";
         if (fs.existsSync(`${workspace}/go.mod`)) return "Go";
@@ -378,7 +378,11 @@ export class RunnerAdapter {
             }
         }
 
+        
+        // ALWAYS generate the report so there is at least one file to commit!
+        try { fs.writeFileSync(`${workspace}/SECURITY_REPORT.md`, this.generateReport(language, detailedFixes, bobResult)); } catch(e) {}
         return { language, vulnerabilitiesFixed: fixedPackages.length, fixedPackages };
+
     }
 
     async runRealDockerTests(workspace: string, language: string, logCallback?: (line: string) => void): Promise<{ success: boolean; error?: string }> {
@@ -450,11 +454,11 @@ export class RunnerAdapter {
             const proc = spawn("docker", dockerArgs, { stdio: ["ignore", "pipe", "pipe"] });
 
             proc.stdout.on("data", (data: Buffer) => {
-                data.toString().split("\n").forEach((line: string) => { if (line.trim()) if (logCallback) logCallback(line); });
+                data.toString().split("\n").forEach((line: string) => { if (line.trim()) if (logCallback) if (logCallback) logCallback(line); });
             });
             proc.stderr.on("data", (data: Buffer) => {
                 data.toString().split("\n").forEach((line: string) => {
-                    if (line.trim() && !line.includes("WARNING") && !line.includes("notice")) if (logCallback) logCallback(`[docker] ${line}`);
+                    if (line.trim() && !line.includes("WARNING") && !line.includes("notice")) if (logCallback) if (logCallback) logCallback(`[docker] ${line}`);
                 });
             });
 
