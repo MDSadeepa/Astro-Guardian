@@ -28,6 +28,13 @@ export interface GraniteAnalysis {
     bob_summary: string;
 }
 
+export interface BobScanResult {
+    secretsFound: number;
+    semgrepIssues: number;
+    bobSummary: string;
+    rawOutput: string;
+}
+
 export class BobAdapter {
     private apiKey: string;
 
@@ -84,11 +91,16 @@ PR_DESCRIPTION:
 [your PR body text]`;
 
         try {
-            // According to the PDF (Page 6), we invoke Bob Shell non-interactively
-            // For the hackathon demo, if the CLI isn't installed yet, we will mock the return output
-            // But this is the exact structure it will use!
+            const prompt = `Review this codebase for hardcoded secrets, vulnerable dependencies, and security issues. Use gitleaks and semgrep tools available on this server.`;
 
-            console.log(`[IBM Bob] Starting analysis on ${repoName} (${branch}) at ${workspacePath}`);
+            const { stdout } = await execAsync(
+                `bob -p "${prompt}"`,
+                {
+                    cwd: workspacePath,
+                    env: { ...process.env, BOB_API_KEY: this.apiKey },
+                    timeout: 120000  // 2 minutes max for Bob to run tools
+                }
+            );
 
             /* 
             // REAL EXECUTION (When Bob Shell is installed on the VPS):
@@ -97,8 +109,9 @@ PR_DESCRIPTION:
                 env: { ...process.env, BOB_API_KEY: this.apiKey }
             });
 
-            // MOCK RESPONSE FOR UI TESTING
-            await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate AI thinking time
+            // Count secret findings from gitleaks output Bob produces
+            const secretMatches = rawOutput.match(/Secret|secret|hardcoded|leaked|api.?key|password/gi) || [];
+            const secretsFound = new Set(secretMatches).size;
 
             return {
                 status: "success",

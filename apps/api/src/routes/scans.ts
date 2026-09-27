@@ -91,14 +91,18 @@ async function runActualJob(jobId: string, installationId: number, owner: string
 
         emit("stage.started", { stage: "scanning", message: "Running Security Scanners..." });
         await updateStage("scanning");
-        const scanRes = await runner.runSecurityScanners(workspace);
-        emit("log.chunk", { text: `[OSV] Found ${scanRes.vulnerabilitiesFound} high-severity vulnerabilities in codebase.` });
+        const scanRes = await runner.runSecurityScanners(workspace, repoName, baseBranch);
+        emit("log.chunk", { text: `[OSV] Scanned ${scanRes.vulnerabilitiesFound} declared dependencies.` });
+        emit("log.chunk", { text: `[GITLEAKS] Secrets detected: ${scanRes.secretsFound}` });
+        emit("log.chunk", { text: `[SEMGREP] Code issues detected: ${scanRes.semgrepIssues}` });
 
         emit("stage.started", { stage: "analysing", message: "Summoning IBM Bob..." });
         await updateStage("analysing");
         await runner.createBranch(workspace, patchBranch);
         emit("log.chunk", { text: `[GIT] Created candidate branch: ${patchBranch}` });
 
+        emit("log.chunk", { text: "[BOB] IBM Bob CLI analysis complete." });
+        emit("log.chunk", { text: `[BOB] ${scanRes.bobSummary}` });
         emit("log.chunk", { text: "[BOB] Analyzing codebase logic and dependencies..." });
         const patchResult = await runner.applyBobPatch(workspace);
         const { language, fixedPackages, detailedFixes } = patchResult;
