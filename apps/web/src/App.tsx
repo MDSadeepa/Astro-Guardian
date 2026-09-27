@@ -164,7 +164,7 @@ function App() {
           <div className="w-20 h-20 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-6 border border-blue-500/20">
             <svg className="w-10 h-10 text-blue-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" /></svg>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-3">AI Repository Guardian</h1>
+          <h1 className="text-3xl font-bold text-white mb-3">ASTRO Repository Guardian</h1>
           <p className="text-gray-400 mb-8 text-sm">Automated security scanning and AI-powered patch generation for your GitHub repositories.</p>
 
           <div className="w-full flex flex-col gap-3">
@@ -426,7 +426,7 @@ function App() {
                 <p className="text-gray-500 text-sm mt-1">Select a repository to view Dependency and Security findings, or trigger a verification scan.</p>
               </div>
               <a
-                href="https://github.com/apps/astreaboba"
+                href="https://github.com/apps/astro-guardian"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2.5 rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-blue-500/20"
