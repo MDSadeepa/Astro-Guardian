@@ -143,6 +143,17 @@ function App() {
     setSelectedRepo(null);
   };
 
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (currentView === 'audit') {
+      fetch(`${API_BASE_URL}/api/v1/dashboard/audit-log`, { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => { if (Array.isArray(data)) setAuditLogs(data); })
+        .catch(() => {});
+    }
+  }, [currentView]);
+
   if (!user) {
     return (
       <div className="min-h-screen bg-[#0f1115] text-gray-100 flex flex-col items-center justify-center relative overflow-hidden">
@@ -181,16 +192,6 @@ function App() {
   ];
   const maxScans = Math.max(...scanHistory.map((d: any) => d.scans), 1);
 
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (currentView === 'audit') {
-      fetch(`${API_BASE_URL}/api/v1/dashboard/audit-log`, { credentials: 'include' })
-        .then(res => res.json())
-        .then(data => { if (Array.isArray(data)) setAuditLogs(data); })
-        .catch(() => {});
-    }
-  }, [currentView]);
 
   return (
     <div className="min-h-screen bg-[#0f1115] text-gray-200 font-sans">
