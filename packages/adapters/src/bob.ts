@@ -17,54 +17,56 @@ export class BobAdapter {
         this.apiKey = apiKey;
     }
 
-    // Invokes Bob Shell non-interactively via a pseudo-TTY (script wrapper)
-    // because bob run requires a real terminal to produce output.
+    // Invokes Bob Shell non-interactively to review the workspace for secrets,
+    // vulnerable dependencies, and security issues using gitleaks + semgrep.
     async analyzeRepository(repoName: string, branch: string, workspacePath: string): Promise<BobScanResult> {
         console.log(`[IBM Bob] Starting analysis on ${repoName} (${branch}) at ${workspacePath}`);
 
+        // Ensure license is accepted before the real scan call — required for
+        // non-interactive mode on first run. This is a no-op if already accepted.
         try {
-            const prompt = `Review this codebase at ${workspacePath} for hardcoded secrets, vulnerable dependencies, and security issues. Use gitleaks and semgrep tools. Report findings clearly.`;
-
-            // Use `script -q -c '...' /dev/null` to give bob a fake PTY so it produces output
-            const cmd = `script -q -c 'bob run --workspace "${workspacePath}" --trust --accept-license --max-turns 5 --format json "${prompt.replace(/'/g, "")}"' /dev/null`;
-
-            const { stdout } = await execAsync(cmd, {
+            await execAsync(`bob --auth-method api-key --accept-license -p "ping"`, {
+                cwd: workspacePath,
                 env: { ...process.env, BOBSHELL_API_KEY: this.apiKey },
-                timeout: 120000
+                timeout: 15000
             });
+        } catch (_) { /* ignore — proceeds even if ping fails */ }
+
+        try {
+            const prompt = `Review this codebase for hardcoded secrets, vulnerable dependencies, and security issues. Use gitleaks and semgrep tools available on this server.`;
+
+            const { stdout } = await execAsync(
+                `bob --auth-method api-key --accept-license -p "${prompt}"`,
+                {
+                    cwd: workspacePath,
+                    env: { ...process.env, BOBSHELL_API_KEY: this.apiKey },
+                    timeout: 120000  // 2 minutes max for Bob to run tools
+                }
+            );
 
             const rawOutput = stdout.trim();
-            console.log(`[IBM Bob] Raw output: ${rawOutput.substring(0, 200)}`);
 
-            // Parse the JSON result from bob
-            let bobSummary = "";
-            let secretsFound = 0;
-            let semgrepIssues = 0;
+            // Count secret findings from gitleaks output Bob produces
+            const secretMatches = rawOutput.match(/Secret|secret|hardcoded|leaked|api.?key|password/gi) || [];
+            const secretsFound = new Set(secretMatches).size;
 
-            try {
-                const parsed = JSON.parse(rawOutput);
-                bobSummary = parsed.last_message || "";
-                // Count security keywords in the AI response
-                const secretMatches = bobSummary.match(/secret|hardcoded|leaked|api.?key|password|credential/gi) || [];
-                secretsFound = new Set(secretMatches).size;
-                const semgrepMatches = bobSummary.match(/semgrep|rule|finding|violation|vulnerability|vulnerable/gi) || [];
-                semgrepIssues = new Set(semgrepMatches).size;
-            } catch (_) {
-                // Not JSON - use raw text
-                const secretMatches = rawOutput.match(/secret|hardcoded|leaked|api.?key|password|credential/gi) || [];
-                secretsFound = new Set(secretMatches).size;
-                const semgrepMatches = rawOutput.match(/semgrep|rule|finding|violation|vulnerability|vulnerable/gi) || [];
-                semgrepIssues = new Set(semgrepMatches).size;
-                bobSummary = rawOutput.split("\n").filter((l: string) => l.trim()).slice(-5).join(" ").substring(0, 500);
-            }
+            // Count semgrep findings
+            const semgrepMatches = rawOutput.match(/semgrep|rule|finding|violation/gi) || [];
+            const semgrepIssues = new Set(semgrepMatches).size;
 
-            if (!bobSummary) bobSummary = "IBM Bob AI completed the security scan successfully.";
+            // Extract a clean summary — last paragraph Bob writes, or full output if short
+            const lines = rawOutput.split("\n").filter(l => l.trim());
+            const bobSummary = lines.length > 0
+                ? lines.slice(-5).join(" ").replace(/\s+/g, " ").trim()
+                : "Bob CLI completed analysis. No structured summary returned.";
 
-            console.log(`[IBM Bob] Analysis complete. Summary: ${bobSummary.substring(0, 100)}`);
+            console.log(`[IBM Bob] Analysis complete. Raw output length: ${rawOutput.length} chars`);
+
             return { secretsFound, semgrepIssues, bobSummary, rawOutput };
 
         } catch (error: any) {
-            console.warn(`[IBM Bob] CLI unavailable or failed: ${error.message?.substring(0, 100)}`);
+            // Bob CLI not available or timed out — fail gracefully
+            console.warn(`[IBM Bob] CLI unavailable or failed: ${error.message}`);
             return {
                 secretsFound: 0,
                 semgrepIssues: 0,
