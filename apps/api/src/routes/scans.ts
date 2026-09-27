@@ -64,6 +64,9 @@ async function runActualJob(jobId: string, installationId: number, owner: string
         emit("log.chunk", { text: `[GIT] Cloned ${repoUrl} securely to execution environment.` });
 
         emit("stage.started", { stage: "scanning", message: "Running Security Scanners..." });
+        emit("log.chunk", { text: `[BOB] Invoking IBM Bob CLI on ${repoName}...` });
+        emit("log.chunk", { text: `[BOB] Running: bob -p "Review codebase for secrets, vulnerabilities, security issues"` });
+        emit("log.chunk", { text: `[BOB] Bob is executing gitleaks + semgrep — this may take up to 2 minutes...` });
         const scanRes = await runner.runSecurityScanners(workspace, repoName, baseBranch);
         emit("log.chunk", { text: `[OSV] Scanned ${scanRes.vulnerabilitiesFound} declared dependencies.` });
         emit("log.chunk", { text: `[GITLEAKS] Secrets detected: ${scanRes.secretsFound}` });
@@ -75,7 +78,7 @@ async function runActualJob(jobId: string, installationId: number, owner: string
 
         emit("log.chunk", { text: "[BOB] IBM Bob CLI analysis complete." });
         emit("log.chunk", { text: `[BOB] ${scanRes.bobSummary}` });
-        const { language } = await runner.applyBobPatch(workspace, scanRes);
+        const { language } = await runner.applyBobPatch(workspace, scanRes, (line) => emit("log.chunk", { text: line }));
         emit("log.chunk", { text: `[BOB] Detected ${language}. Applying AI security patch...` });
 
         // 🔥 REAL DOCKER TESTING 🔥
