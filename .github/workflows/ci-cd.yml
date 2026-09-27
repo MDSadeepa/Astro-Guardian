@@ -145,7 +145,7 @@ jobs:
             cd /home/ubuntu/guardian
 
             # Write / overwrite the .env file with all runtime secrets
-            cat > apps/api/.env <<'ENVEOF'
+            cat > apps/api/.env <<ENVEOF
             DATABASE_URL=${{ secrets.DATABASE_URL }}
             SESSION_SECRET=${{ secrets.SESSION_SECRET }}
             GITHUB_APP_ID=${{ secrets.GITHUB_APP_ID }}
