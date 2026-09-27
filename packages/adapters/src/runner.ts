@@ -137,7 +137,7 @@ export class RunnerAdapter {
         return null;
     }
 
-    async applyBobPatch(workspace: string): Promise<{ language: string; vulnerabilitiesFixed: number; fixedPackages: string[] }> {
+    async applyBobPatch(workspace: string): Promise<{ language: string; vulnerabilitiesFixed: number; fixedPackages: string[]; detailedFixes: {pkg: string; oldVersion?: string; safeVersion: string; def: VulnerabilityDef}[] }> {
         const language = this.detectLanguage(workspace);
         const fixedPackages: string[] = [];
         const detailedFixes: {pkg: string; oldVersion?: string; safeVersion: string; def: VulnerabilityDef}[] = [];
@@ -314,7 +314,7 @@ export class RunnerAdapter {
             }
         }
 
-        return { language, vulnerabilitiesFixed: fixedPackages.length, fixedPackages };
+        return { language, vulnerabilitiesFixed: fixedPackages.length, fixedPackages, detailedFixes };
     }
 
     async runRealDockerTests(workspace: string, language: string, logCallback?: (line: string) => void): Promise<{ success: boolean; error?: string }> {
