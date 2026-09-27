@@ -50,7 +50,7 @@ async function runActualJob(jobId: string, installationId: number, owner: string
     const emit = (type: string, payload: any) => jobEvents.emit("jobEvent", jobId, type, payload);
     const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
-    const workspace = `C:/tmp/guardian/${jobId}`;
+    const workspace = `/tmp/guardian/${jobId}`;
     const patchBranch = `guardian-patch-${jobId}`;
 
     try {
@@ -58,21 +58,27 @@ async function runActualJob(jobId: string, installationId: number, owner: string
         const token = await github.getInstallationToken(installationId);
         const repoUrl = `https://github.com/${owner}/${repoName}.git`;
 
-        if (!fs.existsSync("C:/tmp/guardian")) fs.mkdirSync("C:/tmp/guardian", { recursive: true });
+        if (!fs.existsSync("/tmp/guardian")) fs.mkdirSync("/tmp/guardian", { recursive: true });
 
         await runner.cloneRepository(repoUrl, token, workspace);
         emit("log.chunk", { text: `[GIT] Cloned ${repoUrl} securely to execution environment.` });
 
         emit("stage.started", { stage: "scanning", message: "Running Security Scanners..." });
-        const scanRes = await runner.runSecurityScanners(workspace);
-        emit("log.chunk", { text: `[OSV] Found ${scanRes.vulnerabilitiesFound} high-severity vulnerabilities in codebase.` });
+        emit("log.chunk", { text: `[BOB] Invoking IBM Bob CLI on ${repoName}...` });
+        emit("log.chunk", { text: `[BOB] Running: bob -p "Review codebase for secrets, vulnerabilities, security issues"` });
+        emit("log.chunk", { text: `[BOB] Bob is executing gitleaks + semgrep — this may take up to 2 minutes...` });
+        const scanRes = await runner.runSecurityScanners(workspace, repoName, baseBranch);
+        emit("log.chunk", { text: `[OSV] Scanned ${scanRes.vulnerabilitiesFound} declared dependencies.` });
+        emit("log.chunk", { text: `[GITLEAKS] Secrets detected: ${scanRes.secretsFound}` });
+        emit("log.chunk", { text: `[SEMGREP] Code issues detected: ${scanRes.semgrepIssues}` });
 
         emit("stage.started", { stage: "analysing", message: "Summoning IBM Bob..." });
         await runner.createBranch(workspace, patchBranch);
         emit("log.chunk", { text: `[GIT] Created candidate branch: ${patchBranch}` });
 
-        emit("log.chunk", { text: "[BOB] Analyzing codebase logic and dependencies..." });
-        const { language } = await runner.applyBobPatch(workspace);
+        emit("log.chunk", { text: "[BOB] IBM Bob CLI analysis complete." });
+        emit("log.chunk", { text: `[BOB] ${scanRes.bobSummary}` });
+        const { language } = await runner.applyBobPatch(workspace, scanRes, (line) => emit("log.chunk", { text: line }));
         emit("log.chunk", { text: `[BOB] Detected ${language}. Applying AI security patch...` });
 
         // 🔥 REAL DOCKER TESTING 🔥

@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -7,12 +8,12 @@ import authRoutes from './routes/auth';
 import dashboardRoutes from './routes/dashboard';
 const app = express();
 
-app.use(
-  cors({
-    origin: "http://localhost:5173",
-    credentials: true, // Important for cookies to be sent back and forth
-  }),
-);
+
+app.use(cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    credentials: true // Important for cookies to be sent back and forth
+}));
+
 app.use(express.json());
 app.use(cookieParser()); // Enable reading HttpOnly cookies
 
@@ -21,7 +22,7 @@ app.use('/api/v1/github', githubRoutes);
 app.use('/api/v1', scanRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.get('/api/v1/health', (req: Request, res: Response) => {
-    res.json({status: 'ok'});
+    res.json({ status: 'ok' });
 });
 
 const PORT = process.env.PORT || 3001;
