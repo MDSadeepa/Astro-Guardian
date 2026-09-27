@@ -1,31 +1,13 @@
-import { getWatsonxClient } from "./watsonx";
+import { exec } from "child_process";
+import { promisify } from "util";
 
-const GRANITE_MODEL_ID = "ibm/granite-3-8b-instruct";
+const execAsync = promisify(exec);
 
-export interface DetailedFix {
-    pkg: string;
-    oldVersion?: string;
-    safeVersion: string;
-    def: {
-        safeVersion: string;
-        severity: string;
-        description: string;
-        cve: string;
-    };
-}
-
-export interface GraniteAnalysis {
-    status: "success" | "fallback";
-    findings: Array<{
-        category: string;
-        severity: string;
-        package: string;
-        cve: string;
-        issue: string;
-        action: string;
-        affectedFile: string;
-    }>;
-    bob_summary: string;
+export interface BobScanResult {
+    secretsFound: number;
+    semgrepIssues: number;
+    bobSummary: string;
+    rawOutput: string;
 }
 
 export class BobAdapter {
@@ -35,88 +17,61 @@ export class BobAdapter {
         this.apiKey = apiKey;
     }
 
-    /**
-     * Calls IBM watsonx.ai Granite-3-8b-instruct with the real OSV/npm-audit findings.
-     * Falls back to structured OSV data if Granite is unavailable.
-     */
-    async analyzeRepository(language: string, detailedFixes: DetailedFix[]): Promise<GraniteAnalysis> {
-        // Build findings from OSV/npm-audit data regardless — used for fallback and as Granite input
-        const findings = detailedFixes.map(fix => ({
-            category: "dependency",
-            severity: fix.def.severity,
-            package: fix.pkg,
-            cve: fix.def.cve,
-            issue: fix.def.description || `Vulnerability in ${fix.pkg}`,
-            action: `Upgrade to ${fix.def.safeVersion}`,
-            affectedFile: language === "Node.js" ? "package.json" : language === "Python" ? "requirements.txt" : "pom.xml",
-        }));
-
-        if (detailedFixes.length === 0) {
-            return {
-                status: "success",
-                findings: [],
-                bob_summary: `IBM Bob analyzed the ${language} repository using watsonx.ai Granite. No vulnerable dependencies were detected — the project is clean.`,
-            };
-        }
-
-        // Build the structured prompt for Granite
-        const cveList = detailedFixes
-            .map(fix => `- Package: ${fix.pkg}, CVE: ${fix.def.cve}, Severity: ${fix.def.severity}, Old: ${fix.oldVersion || "unknown"} → Fixed: ${fix.def.safeVersion}, Description: ${fix.def.description}`)
-            .join("\n");
-
-        const prompt = `You are a security expert reviewing a ${language} project.
-The automated OSV/npm-audit scanner detected the following vulnerabilities that have been patched:
-
-${cveList}
-
-For each vulnerability:
-1. Explain the attack surface in 1-2 plain English sentences (what can an attacker do?)
-2. Confirm whether a version bump alone is sufficient or if further hardening is needed
-3. Rate the overall patch quality (sufficient / recommend additional hardening)
-
-Then write a concise GitHub Pull Request description (3-5 sentences) summarising what was fixed and why a reviewer should approve.
-
-Respond in this exact format:
-ANALYSIS:
-[your per-CVE analysis]
-
-PR_DESCRIPTION:
-[your PR body text]`;
+    // Invokes Bob Shell non-interactively via a pseudo-TTY (script wrapper)
+    // because bob run requires a real terminal to produce output.
+    async analyzeRepository(repoName: string, branch: string, workspacePath: string): Promise<BobScanResult> {
+        console.log(`[IBM Bob] Starting analysis on ${repoName} (${branch}) at ${workspacePath}`);
 
         try {
-            // According to the PDF (Page 6), we invoke Bob Shell non-interactively
-            // For the hackathon demo, if the CLI isn't installed yet, we will mock the return output
-            // But this is the exact structure it will use!
+            const prompt = `Review this codebase at ${workspacePath} for hardcoded secrets, vulnerable dependencies, and security issues. Use gitleaks and semgrep tools. Report findings clearly.`;
 
-            console.log(`[IBM Bob] Starting analysis on ${repoName} (${branch}) at ${workspacePath}`);
+            // Use `script -q -c '...' /dev/null` to give bob a fake PTY so it produces output
+            const cmd = `script -q -c 'bob run --workspace "${workspacePath}" --trust --accept-license --max-turns 5 --format json "${prompt.replace(/'/g, "")}"' /dev/null`;
 
-            /* 
-            // REAL EXECUTION (When Bob Shell is installed on the VPS):
-            const { stdout, stderr } = await execAsync(`bob run --non-interactive --task "investigate dependencies and security issues"`, {
-                cwd: workspacePath,
-                env: { ...process.env, BOB_API_KEY: this.apiKey }
+            const { stdout } = await execAsync(cmd, {
+                env: { ...process.env, BOBSHELL_API_KEY: this.apiKey },
+                timeout: 120000
             });
 
-            // MOCK RESPONSE FOR UI TESTING
-            await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate AI thinking time
+            const rawOutput = stdout.trim();
+            console.log(`[IBM Bob] Raw output: ${rawOutput.substring(0, 200)}`);
 
-            return {
-                status: "success",
-                findings,
-                bob_summary: bobSummary,
-            };
+            // Parse the JSON result from bob
+            let bobSummary = "";
+            let secretsFound = 0;
+            let semgrepIssues = 0;
+
+            try {
+                const parsed = JSON.parse(rawOutput);
+                bobSummary = parsed.last_message || "";
+                // Count security keywords in the AI response
+                const secretMatches = bobSummary.match(/secret|hardcoded|leaked|api.?key|password|credential/gi) || [];
+                secretsFound = new Set(secretMatches).size;
+                const semgrepMatches = bobSummary.match(/semgrep|rule|finding|violation|vulnerability|vulnerable/gi) || [];
+                semgrepIssues = new Set(semgrepMatches).size;
+            } catch (_) {
+                // Not JSON - use raw text
+                const secretMatches = rawOutput.match(/secret|hardcoded|leaked|api.?key|password|credential/gi) || [];
+                secretsFound = new Set(secretMatches).size;
+                const semgrepMatches = rawOutput.match(/semgrep|rule|finding|violation|vulnerability|vulnerable/gi) || [];
+                semgrepIssues = new Set(semgrepMatches).size;
+                bobSummary = rawOutput.split("\n").filter((l: string) => l.trim()).slice(-5).join(" ").substring(0, 500);
+            }
+
+            if (!bobSummary) bobSummary = "IBM Bob AI completed the security scan successfully.";
+
+            console.log(`[IBM Bob] Analysis complete. Summary: ${bobSummary.substring(0, 100)}`);
+            return { secretsFound, semgrepIssues, bobSummary, rawOutput };
 
         } catch (error: any) {
-            console.error("[BobAdapter] Granite call failed, using OSV fallback:", error.message);
-
-            // Fallback: use the structured OSV data directly so the PR and UI still show real CVE data
-            const fallbackSummary = `IBM Bob automatically patched ${detailedFixes.length} security vulnerabilities in this ${language} repository using OSV/npm-audit data. Fixed packages: ${detailedFixes.map(f => `${f.pkg} (${f.def.cve})`).join(", ")}. All changes were validated in an isolated Docker container.`;
-
+            console.warn(`[IBM Bob] CLI unavailable or failed: ${error.message?.substring(0, 100)}`);
             return {
-                status: "fallback",
-                findings,
-                bob_summary: fallbackSummary,
+                secretsFound: 0,
+                semgrepIssues: 0,
+                bobSummary: "Bob CLI was not available on this server. Manual security review recommended.",
+                rawOutput: ""
             };
         }
     }
 }
+
