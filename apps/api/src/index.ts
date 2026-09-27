@@ -19,7 +19,7 @@ app.use('/api/v1/github', githubRoutes);
 app.use('/api/v1', scanRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.get('/api/v1/health', (req: Request, res: Response) => {
-    res.json({status: 'ok'});
+    res.json({ status: 'ok' });
 });
 
 const PORT = process.env.PORT || 3001;

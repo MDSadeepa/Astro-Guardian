@@ -23,8 +23,17 @@ router.get("/installations", async (req: Request, res: Response) => {
         }
         
         const decoded = jwt.verify(token, JWT_SECRET) as any;
-        const username = decoded.username;
-        const dbUserId = decoded.id; // Extracted from our new JWT
+        let username = decoded.username;
+        let dbUserId = decoded.id; // Extracted from our new JWT
+
+        // Fallback: If old token, use the demo_user!
+        if (!dbUserId) {
+            const demoUser = await prisma.user.findFirst();
+            if (demoUser) {
+                dbUserId = demoUser.id;
+                username = demoUser.username;
+            }
+        }
 
         if (!APP_ID || !PRIVATE_KEY) throw new Error("GitHub App credentials missing in .env");
         
